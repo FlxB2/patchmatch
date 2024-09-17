@@ -123,6 +123,8 @@ func ConvertHunk(h hunk, regex *regexp.Regexp) hunk {
 	newContent := ""
 	for _, line := range strings.Split(h.content, "\n") {
 		if regex.FindString(line) != "" {
+			// TODO what if +/- after another, replacing a line
+			// keep linesIncluded and remove + line
 			if line[0] == '-' {
 				h.postImage.linesIncluded += 1
 			} else if line[0] == '+' {
