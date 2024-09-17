@@ -34,25 +34,29 @@ type lineIndex struct {
 }
 
 func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, "Error: Nothing to match against. Usage: ./patchmatch <regex>")
+		os.Exit(1)
+	}
+
+	regexPattern := os.Args[1]
+	regex, err := regexp.Compile(regexPattern)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Error compiling regex:", err)
+		os.Exit(1)
+	}
+
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error reading stdin:", err)
-		return
+		os.Exit(1)
 	}
-
-	// normalize new lines
 	stdIn := strings.ReplaceAll(string(input), "\r\n", "\n")
 
 	hunks := SplitHunks(stdIn)
 
 	for _, h := range hunks {
-		converted, err := ConvertHunk(h, "abc")
-
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
+		converted := ConvertHunk(h, regex)
 		fmt.Println(converted.Str())
 	}
 }
@@ -112,17 +116,10 @@ func SplitHunks(content string) []hunk {
 	return hunks
 }
 
-func ConvertHunk(h hunk, contains string) (hunk, error) {
-	// indexes are just preimage:
-	// linesIncluded = <content length> - <"+" lines>
+func ConvertHunk(h hunk, regex *regexp.Regexp) hunk {
+	// indexes are just
+	// preimage: linesIncluded = <content length> - <"+" lines>
 	// postimage: linesIncluded: <content length> - <"-" lines>
-
-	regex, err := regexp.Compile(contains)
-
-	if err != nil {
-		return hunk{}, fmt.Errorf("could not compile %s", contains)
-	}
-
 	newContent := ""
 	for _, line := range strings.Split(h.content, "\n") {
 		if regex.FindString(line) != "" {
@@ -140,7 +137,7 @@ func ConvertHunk(h hunk, contains string) (hunk, error) {
 	}
 
 	h.content = strings.TrimPrefix(newContent, "\n")
-	return h, nil
+	return h
 }
 
 func (h hunk) Str() string {
