@@ -1,0 +1,12 @@
+name: Testsuite
+on: [push, pull_request]
+jobs: 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+      - name: Build docker images
+        run: docker build . --file test/Dockerfile --tag 'image'
+      - name: Run tests
+        run: docker run 'image'
