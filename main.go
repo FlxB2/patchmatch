@@ -117,28 +117,59 @@ func SplitHunks(content string) []hunk {
 }
 
 func ConvertHunk(h hunk, regex *regexp.Regexp) hunk {
-	// indexes are just
-	// preimage: linesIncluded = <content length> - <"+" lines>
-	// postimage: linesIncluded: <content length> - <"-" lines>
-	newContent := ""
-	for _, line := range strings.Split(h.content, "\n") {
-		if regex.FindString(line) != "" {
-			// TODO what if +/- after another, replacing a line
-			// keep linesIncluded and remove + line
-			if line[0] == '-' {
-				h.postImage.linesIncluded += 1
-			} else if line[0] == '+' {
-				h.postImage.linesIncluded -= 1
-			}
-
-			after := " " + line[1:]
-			newContent += "\n" + after
-		} else {
-			newContent += "\n" + line
-		}
+	// naively search the whole diff, if we don't match
+	// anything right away just return
+	if regex.FindString(h.content) == "" {
+		return h
 	}
 
-	h.content = strings.TrimPrefix(newContent, "\n")
+	resultingLines := []string{}
+	lastDiffStart := -1
+	inRemovingDiff := false
+	for i, line := range strings.Split(h.content, "\n") {
+		inDiff := line[0] == '-' || line[0] == '+'
+		if inDiff {
+			if lastDiffStart == -1 {
+				lastDiffStart = i
+			}
+
+			if regex.FindString(line) != "" {
+				// This is way too drastic and will remove too many
+				// lines :) - might fix
+				for j := len(resultingLines) - 1; j >= lastDiffStart; j-- {
+					if resultingLines[j][0] == '-' {
+						h.postImage.linesIncluded += 1
+					} else if resultingLines[j][0] == '+' {
+						h.postImage.linesIncluded -= 1
+					}
+					resultingLines[j] = " " + resultingLines[j][1:]
+				}
+
+				inRemovingDiff = true
+			}
+
+			if inRemovingDiff {
+				if line[0] == '-' {
+					// keep - lines to restore previous line
+					h.postImage.linesIncluded += 1
+					newLine := " " + line[1:]
+					resultingLines = append(resultingLines, newLine)
+				} else if line[0] == '+' {
+					// remove + lines
+					h.postImage.linesIncluded -= 1
+				}
+			} else {
+				resultingLines = append(resultingLines, line)
+			}
+
+		} else {
+			lastDiffStart = -1
+			inRemovingDiff = false
+			resultingLines = append(resultingLines, line)
+		}
+	}
+  
+	h.content = strings.Join(resultingLines, "\n")
 	return h
 }
 

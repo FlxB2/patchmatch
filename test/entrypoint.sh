@@ -13,7 +13,7 @@ apply_and_check_diff() {
   # overwrite w/ files from ../diff
   cp -r ../modified/* .
   # save git diff
-  git diff ${file} > basic.diff
+  git diff ${file} > ${diff_file}
   # stash changes to be in baseline state
   git stash >/dev/null 2>&1
 
@@ -35,10 +35,16 @@ apply_and_check_diff() {
   fi
 
   # Compare the resulting file with the expected file
-  if diff -q basic ../expected/basic >/dev/null; then
+  if diff -q ${file} ../expected/${file} >/dev/null; then
     echo "✅ ${file} success"
   else
     echo "❌ ${file} failure"
+    echo "Before:"
+    cat "$diff_file"
+    echo "After:"
+    cat "$new_diff_file"
+    echo "File:"
+    cat ${file}
     return 1
   fi
 
@@ -62,6 +68,7 @@ git commit -m "test" > /dev/null 2>&1
 failure=0
 echo "-- Starting Test --"
 apply_and_check_diff basic "content" || failure=1
+apply_and_check_diff contentChange "modified" || failure=1
 
 if [ "$failure" -ne 0 ]; then
   echo "One or more tests failed."
