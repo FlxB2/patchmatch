@@ -21,16 +21,16 @@ apply_and_check_diff() {
 
   # Filter the diff file using patchmatch and apply the changes
   cat "$diff_file" | ../../patchmatch "$regex" > "$new_diff_file"
-  git apply "$new_diff_file"
+  git apply "$new_diff_file" --allow-empty
 
   # Check if git apply was successful
   if [ $? -ne 0 ]; then
     echo "❌ ${file} failure"
     echo "Git apply failed"
     echo "Before:"
-    cat "$diff_file"
+    cat -A "$diff_file"
     echo "After:"
-    cat "$new_diff_file"
+    cat -A "$new_diff_file"
     return 1
   fi
 
@@ -40,11 +40,11 @@ apply_and_check_diff() {
   else
     echo "❌ ${file} failure"
     echo "Before:"
-    cat "$diff_file"
+    cat -A "$diff_file"
     echo "After:"
-    cat "$new_diff_file"
+    cat -A "$new_diff_file"
     echo "File:"
-    cat ${file}
+    cat -A ${file}
     return 1
   fi
 
@@ -69,6 +69,7 @@ failure=0
 echo "-- Starting Test --"
 apply_and_check_diff basic "content" || failure=1
 apply_and_check_diff contentChange "modified" || failure=1
+apply_and_check_diff simpleBlockNoChanges "modified|inserted" || failure=1
 
 if [ "$failure" -ne 0 ]; then
   echo "One or more tests failed."

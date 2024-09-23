@@ -57,7 +57,9 @@ func main() {
 
 	for _, h := range hunks {
 		converted := ConvertHunk(h, regex)
-		fmt.Println(converted.Str())
+		if converted != nil {
+			fmt.Println(converted.Str())
+		}
 	}
 }
 
@@ -116,18 +118,18 @@ func SplitHunks(content string) []hunk {
 	return hunks
 }
 
-func ConvertHunk(h hunk, regex *regexp.Regexp) hunk {
+func ConvertHunk(h hunk, regex *regexp.Regexp) *hunk {
 	// naively search the whole diff, if we don't match
 	// anything right away just return
 	if regex.FindString(h.content) == "" {
-		return h
+		return &h
 	}
 
 	resultingLines := []string{}
 	lastDiffStart := -1
 	inRemovingDiff := false
 	for i, line := range strings.Split(h.content, "\n") {
-		inDiff := line[0] == '-' || line[0] == '+'
+		inDiff := isChangeLine(line)
 		if inDiff {
 			if lastDiffStart == -1 {
 				lastDiffStart = i
@@ -168,9 +170,14 @@ func ConvertHunk(h hunk, regex *regexp.Regexp) hunk {
 			resultingLines = append(resultingLines, line)
 		}
 	}
-  
+
 	h.content = strings.Join(resultingLines, "\n")
-	return h
+
+	if h.empty() {
+		return nil
+	}
+
+	return &h
 }
 
 func (h hunk) Str() string {
@@ -183,4 +190,17 @@ func (h hunk) Str() string {
 		hunk = fmt.Sprintf("%s\n%s", h.header, hunk)
 	}
 	return hunk
+}
+
+func (h hunk) empty() bool {
+	for _, line := range strings.Split(h.content, "\n") {
+		if isChangeLine(line) {
+			return false
+		}
+	}
+	return true
+}
+
+func isChangeLine(s string) bool {
+	return s[0] == '-' || s[0] == '+'
 }
