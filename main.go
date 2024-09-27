@@ -128,11 +128,11 @@ func ConvertHunk(h hunk, regex *regexp.Regexp) *hunk {
 	resultingLines := []string{}
 	lastDiffStart := -1
 	inRemovingDiff := false
-	for i, line := range strings.Split(h.content, "\n") {
+	for _, line := range strings.Split(h.content, "\n") {
 		inDiff := isChangeLine(line)
 		if inDiff {
 			if lastDiffStart == -1 {
-				lastDiffStart = i
+				lastDiffStart = len(resultingLines) - 1
 			}
 
 			if regex.FindString(line) != "" {
@@ -202,5 +202,5 @@ func (h hunk) empty() bool {
 }
 
 func isChangeLine(s string) bool {
-	return s[0] == '-' || s[0] == '+'
+	return len(s) > 0 && (s[0] == '-' || s[0] == '+')
 }

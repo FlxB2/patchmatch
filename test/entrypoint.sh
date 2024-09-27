@@ -43,8 +43,8 @@ apply_and_check_diff() {
     cat -A "$diff_file"
     echo "After:"
     cat -A "$new_diff_file"
-    echo "File:"
-    cat -A ${file}
+    echo "diff:"
+    diff ${file} ../expected/${file}
     return 1
   fi
 
@@ -53,6 +53,11 @@ apply_and_check_diff() {
 
 # build patchmatch
 go build ../
+
+if [ $? -ne 0 ]; then
+  echo "❌ build failed"
+  exit 1
+fi 
 
 # init git 
 git config --global user.email "you@example.com"
@@ -70,6 +75,7 @@ echo "-- Starting Test --"
 apply_and_check_diff basic "content" || failure=1
 apply_and_check_diff contentChange "modified" || failure=1
 apply_and_check_diff simpleBlockNoChanges "modified|inserted" || failure=1
+apply_and_check_diff end "(m|M)odified" || failure=1
 
 if [ "$failure" -ne 0 ]; then
   echo "One or more tests failed."
