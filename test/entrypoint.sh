@@ -76,6 +76,8 @@ apply_and_check_diff basic "content" || failure=1
 apply_and_check_diff contentChange "modified" || failure=1
 apply_and_check_diff simpleBlockNoChanges "modified|inserted" || failure=1
 apply_and_check_diff end "(m|M)odified" || failure=1
+apply_and_check_diff complex "((m|M)odified|(r|R)ewritten|(u|U)pdated)" || failure=1
+# TODO: add test all files at once here
 
 if [ "$failure" -ne 0 ]; then
   echo "One or more tests failed."

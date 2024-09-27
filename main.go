@@ -121,6 +121,7 @@ func SplitHunks(content string) []hunk {
 func ConvertHunk(h hunk, regex *regexp.Regexp) *hunk {
 	// naively search the whole diff, if we don't match
 	// anything right away just return
+	// maybe remove this? might be unnecessary
 	if regex.FindString(h.content) == "" {
 		return &h
 	}
@@ -135,16 +136,19 @@ func ConvertHunk(h hunk, regex *regexp.Regexp) *hunk {
 				lastDiffStart = len(resultingLines) - 1
 			}
 
-			if regex.FindString(line) != "" {
+			if !inRemovingDiff && regex.FindString(line) != "" {
 				// This is way too drastic and will remove too many
 				// lines :) - might fix
+				// especially for cases with lines like: + + - + - - etc
+				// we just remove all connected differences w/o space in between
 				for j := len(resultingLines) - 1; j >= lastDiffStart; j-- {
 					if resultingLines[j][0] == '-' {
 						h.postImage.linesIncluded += 1
+						resultingLines[j] = " " + resultingLines[j][1:]
 					} else if resultingLines[j][0] == '+' {
 						h.postImage.linesIncluded -= 1
+						resultingLines = resultingLines[:len(resultingLines) - 1]
 					}
-					resultingLines[j] = " " + resultingLines[j][1:]
 				}
 
 				inRemovingDiff = true
