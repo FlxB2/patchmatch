@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -34,12 +35,18 @@ type lineIndex struct {
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Error: Nothing to match against. Usage: ./patchmatch <regex>")
+	keepChanges := flag.Bool("k", false, "Only keep changes matching the regex")
+	flag.Parse()
+
+	flag.Parse()
+
+	// After flags, the first non-flag argument should be the regex pattern
+	if len(flag.Args()) < 1 {
+		fmt.Fprintln(os.Stderr, "Error: Nothing to match against. Usage: ./patchmatch [-k] <regex>")
 		os.Exit(1)
 	}
 
-	regexPattern := os.Args[1]
+	regexPattern := flag.Arg(0)
 	regex, err := regexp.Compile(regexPattern)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error compiling regex:", err)
@@ -55,8 +62,14 @@ func main() {
 
 	hunks := SplitHunks(stdIn)
 
+	header := ""
 	for _, h := range hunks {
-		converted := ConvertHunk(h, regex)
+		if h.header != "" {
+			header = h.header
+		}
+		h.header = header
+
+		converted := ConvertHunk(h, regex, *keepChanges)
 		if converted != nil {
 			fmt.Println(converted.Str())
 		}
@@ -118,14 +131,7 @@ func SplitHunks(content string) []hunk {
 	return hunks
 }
 
-func ConvertHunk(h hunk, regex *regexp.Regexp) *hunk {
-	// naively search the whole diff, if we don't match
-	// anything right away just return
-	// maybe remove this? might be unnecessary
-	if regex.FindString(h.content) == "" {
-		return &h
-	}
-
+func ConvertHunk(h hunk, regex *regexp.Regexp, onlyKeepMatch bool) *hunk {
 	resultingLines := []string{}
 	lastDiffStart := -1
 	inRemovingDiff := false
@@ -136,22 +142,27 @@ func ConvertHunk(h hunk, regex *regexp.Regexp) *hunk {
 				lastDiffStart = len(resultingLines) - 1
 			}
 
-			if !inRemovingDiff && regex.FindString(line) != "" {
-				// This is way too drastic and will remove too many
-				// lines :) - might fix
-				// especially for cases with lines like: + + - + - - etc
-				// we just remove all connected differences w/o space in between
-				for j := len(resultingLines) - 1; j >= lastDiffStart; j-- {
-					if resultingLines[j][0] == '-' {
-						h.postImage.linesIncluded += 1
-						resultingLines[j] = " " + resultingLines[j][1:]
-					} else if resultingLines[j][0] == '+' {
-						h.postImage.linesIncluded -= 1
-						resultingLines = resultingLines[:len(resultingLines) - 1]
-					}
-				}
+			if !inRemovingDiff {
+				foundOccurence := regex.FindString(line) != ""
+				shouldRemove := (!onlyKeepMatch && foundOccurence) || (onlyKeepMatch && !foundOccurence)
 
-				inRemovingDiff = true
+				if shouldRemove {
+					// This is way too drastic and will remove too many
+					// lines :) - might fix
+					// especially for cases with lines like: + + - + - - etc
+					// we just remove all connected differences w/o space in between
+					for j := len(resultingLines) - 1; j >= lastDiffStart; j-- {
+						if resultingLines[j][0] == '-' {
+							h.postImage.linesIncluded += 1
+							resultingLines[j] = " " + resultingLines[j][1:]
+						} else if resultingLines[j][0] == '+' {
+							h.postImage.linesIncluded -= 1
+							resultingLines = resultingLines[:len(resultingLines)-1]
+						}
+					}
+
+					inRemovingDiff = true
+				}
 			}
 
 			if inRemovingDiff {
