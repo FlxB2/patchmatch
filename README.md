@@ -52,6 +52,10 @@ index abcdef1..1234567 100644
 - `<regex>`: The regular expression pattern, following [RE2 Syntax](https://github.com/google/re2/wiki/Syntax)
 - `-k`: An optional flag that, if provided, keeps the changes that match the regex. Everything else is removed.
 
+## Installation
+For OSX and Linux, simply run `make install`. This will add the binary to `/usr/local/bin`.  
+You can compile it yourself using `make build`.  
+Run tests using `make tests`.
 
 ## Which changes are removed?
 Because splitting changed lines is hard, Patchmatch removes blocks of changes entirely if they match the regular expression.   
